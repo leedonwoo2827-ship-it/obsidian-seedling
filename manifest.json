@@ -1,0 +1,10 @@
+{
+  "id": "seedling",
+  "name": "Seedling",
+  "version": "0.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "로컬 Ollama 기반 AI 보조 제텔카스텐 — Solve & Teach / Caption Remix / 영상제작소",
+  "author": "scottnaddle",
+  "authorUrl": "https://github.com/scottnaddle",
+  "isDesktopOnly": true
+}

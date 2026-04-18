@@ -1,0 +1,54 @@
+.seedling-modal {
+  padding: 16px;
+}
+
+.seedling-modal textarea {
+  width: 100%;
+  min-height: 200px;
+  font-family: var(--font-monospace);
+  resize: vertical;
+}
+
+.seedling-modal input[type="text"],
+.seedling-modal input[type="number"] {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.seedling-modal select {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.seedling-modal .seedling-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.seedling-modal .seedling-hint {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.seedling-modal .seedling-file-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.seedling-modal .seedling-file-tabs button {
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.seedling-modal .seedling-file-tabs button.active {
+  border-bottom-color: var(--interactive-accent);
+  color: var(--interactive-accent);
+}
