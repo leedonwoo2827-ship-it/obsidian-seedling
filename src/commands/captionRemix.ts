@@ -23,21 +23,33 @@ export async function runCaptionRemix(plugin: SeedlingPlugin): Promise<void> {
     return;
   }
 
-  const notice = new Notice(
-    `🎬 Caption Remix 생성 중... (큐 ${parsed.cueCount}개, ${plugin.settings.ollamaModel})`,
-    0
+  const abort = new AbortController();
+  const label = `Caption Remix — ${input.filename} (큐 ${parsed.cueCount})`;
+  const job = plugin.jobs.start(
+    label,
+    "caption-remix",
+    plugin.settings.ollamaModel,
+    abort
   );
 
   try {
     const prompt = buildCaptionRemixPrompt(input.filename, parsed.plainText);
-    const response = await plugin.ollama.generate(prompt, CAPTION_REMIX_SYSTEM, {
-      temperature: plugin.settings.temperature,
-    });
+    const response = await plugin.ollama.generateStream(
+      prompt,
+      CAPTION_REMIX_SYSTEM,
+      { temperature: plugin.settings.temperature },
+      {
+        signal: abort.signal,
+        onChunk: (token) => plugin.jobs.appendText(job.id, token),
+      }
+    );
+
+    if (abort.signal.aborted) return;
 
     const baseName = input.filename.replace(/\.[^.]+$/, "");
     const filename = `${sanitizeFilename(baseName)}-${dateStamp()}`;
 
-    await writeToDerived(
+    const file = await writeToDerived(
       plugin.app,
       plugin.settings.derivedFolder,
       "caption-remix",
@@ -54,10 +66,13 @@ export async function runCaptionRemix(plugin: SeedlingPlugin): Promise<void> {
       `# ${baseName} — Caption Remix\n\n## 원본 자막 (정제됨)\n\n\`\`\`\n${parsed.plainText.slice(0, 2000)}${parsed.plainText.length > 2000 ? "\n... (생략)" : ""}\n\`\`\`\n\n---\n\n${response}`
     );
 
-    notice.hide();
+    plugin.jobs.complete(job.id, file.path);
   } catch (e) {
-    notice.hide();
+    if (abort.signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
+      return;
+    }
     const msg = e instanceof Error ? e.message : String(e);
+    plugin.jobs.fail(job.id, msg);
     new Notice(`❌ Caption Remix 실패: ${msg}`, 8000);
   }
 }

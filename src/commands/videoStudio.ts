@@ -21,9 +21,13 @@ export async function runVideoStudio(plugin: SeedlingPlugin): Promise<void> {
   const input = await modal.open();
   if (!input) return;
 
-  const notice = new Notice(
-    `🎥 영상제작소 생성 중... (${input.style}, ${input.durationSec}초, ${plugin.settings.ollamaModel})`,
-    0
+  const abort = new AbortController();
+  const label = `영상제작소 — ${input.sourceFile.basename} (${input.style}, ${input.durationSec}초)`;
+  const job = plugin.jobs.start(
+    label,
+    "video-studio",
+    plugin.settings.ollamaModel,
+    abort
   );
 
   try {
@@ -34,14 +38,24 @@ export async function runVideoStudio(plugin: SeedlingPlugin): Promise<void> {
     const system = buildVideoStudioSystem(input.style, input.durationSec);
     const prompt = buildVideoStudioPrompt(title, body, input.style, input.durationSec);
 
-    const response = await plugin.ollama.generate(prompt, system, {
-      temperature: plugin.settings.temperature,
-      num_predict: 2048,
-    });
+    const response = await plugin.ollama.generateStream(
+      prompt,
+      system,
+      {
+        temperature: plugin.settings.temperature,
+        num_predict: 2048,
+      },
+      {
+        signal: abort.signal,
+        onChunk: (token) => plugin.jobs.appendText(job.id, token),
+      }
+    );
+
+    if (abort.signal.aborted) return;
 
     const filename = `${sanitizeFilename(title)}-${input.style}-${dateStamp()}`;
 
-    await writeToDerived(
+    const file = await writeToDerived(
       plugin.app,
       plugin.settings.derivedFolder,
       "video-studio",
@@ -58,10 +72,13 @@ export async function runVideoStudio(plugin: SeedlingPlugin): Promise<void> {
       `# ${title} — ${input.style} (${input.durationSec}초)\n\n${response}`
     );
 
-    notice.hide();
+    plugin.jobs.complete(job.id, file.path);
   } catch (e) {
-    notice.hide();
+    if (abort.signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
+      return;
+    }
     const msg = e instanceof Error ? e.message : String(e);
+    plugin.jobs.fail(job.id, msg);
     new Notice(`❌ 영상제작소 실패: ${msg}`, 8000);
   }
 }
